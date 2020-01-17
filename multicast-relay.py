@@ -443,12 +443,6 @@ class PacketRelay():
                 if self.ttl:
                     data = data[:8] + struct.pack('B', self.ttl) + data[9:]
 
-                ipChecksum = struct.unpack('!H', data[10:12])[0]
-                if dstPort == PacketRelay.DHCP67 or PacketRelay.dstPort == DHCP68:
-                    pass
-                if ipChecksum in self.recentChecksums:
-                    continue
-
                 srcAddr = socket.inet_ntoa(data[12:16])
                 dstAddr = socket.inet_ntoa(data[16:20])
 
@@ -462,6 +456,12 @@ class PacketRelay():
                 ipHeaderLength = (struct.unpack('B', firstDataByte)[0] & 0x0f) * 4
                 srcPort = struct.unpack('!H', data[ipHeaderLength+0:ipHeaderLength+2])[0]
                 dstPort = struct.unpack('!H', data[ipHeaderLength+2:ipHeaderLength+4])[0]
+
+                ipChecksum = struct.unpack('!H', data[10:12])[0]
+                if dstPort == PacketRelay.DHCP67 or dstPort == PacketRelay.DHCP68:
+                    pass
+                if ipChecksum in self.recentChecksums:
+                    continue
 
                 origSrcAddr = srcAddr
                 origSrcPort = srcPort
