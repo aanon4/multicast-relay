@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import binascii
@@ -166,6 +166,8 @@ class PacketRelay():
     SSDP_MCAST_PORT   = 1900
     SSDP_UNICAST_PORT = 1901
     MAGIC             = b'MRLY'
+    DHCP67            = 67
+    DHCP68            = 68
 
     def __init__(self, interfaces, waitForIP, ttl, oneInterface,
                  homebrewNetifaces, ifNameStructLen, allowNonEther,
@@ -442,6 +444,8 @@ class PacketRelay():
                     data = data[:8] + struct.pack('B', self.ttl) + data[9:]
 
                 ipChecksum = struct.unpack('!H', data[10:12])[0]
+                if dstPort == PacketRelay.DHCP67 or PacketRelay.dstPort == DHCP68:
+                    pass
                 if ipChecksum in self.recentChecksums:
                     continue
 
@@ -673,6 +677,8 @@ def main():
                         help='Do not relay mDNS packets.')
     parser.add_argument('--noSSDP', action='store_true',
                         help='Do not relay SSDP packets.')
+    parser.add_argument('--DHCP', action='store_true',
+                        help='Relay DHCP packets.')
     parser.add_argument('--noSonosDiscovery', action='store_true',
                         help='Do not relay broadcast Sonos discovery packets.')
     parser.add_argument('--homebrewNetifaces', action='store_true',
@@ -733,6 +739,10 @@ def main():
         relays.add(('%s:%d' % (PacketRelay.SSDP_MCAST_ADDR, PacketRelay.SSDP_MCAST_PORT), 'SSDP'))
     if not args.noSonosDiscovery:
         relays.add((PacketRelay.BROADCAST+':6969', 'Sonos Discovery'))
+    if args.DHCP:
+        relays.add(('255.255.255.255:67', 'DHCP67'))
+        relays.add(('255.255.255.255:68', 'DHCP68'))
+        
 
     if args.ssdpUnicastAddr:
         relays.add(('%s:%d' % (args.ssdpUnicastAddr, PacketRelay.SSDP_UNICAST_PORT), 'SSDPunicast'))
