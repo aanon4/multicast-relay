@@ -473,39 +473,41 @@ class PacketRelay():
                 destMac = None
                 modifiedData = None
 
-                if dstAddr == PacketRelay.SSDP_MCAST_ADDR and dstPort == PacketRelay.SSDP_MCAST_PORT and (re.search(b'M-SEARCH', data) or re.search(b'NOTIFY', data)):
-                    recentSsdpSearchSrc = {'addr': srcAddr, 'port': srcPort}
-                    self.logger.info('Last SSDP search source: %s:%d' % (srcAddr, srcPort))
+                if not self.oneInterface:
 
-                    # Modify the src IP and port to make it look like it comes from us
-                    # so as we receive the unicast answers to a well known port (1901)
-                    # and can relay them
-                    srcAddr = self.ssdpUnicastAddr
-                    srcPort = PacketRelay.SSDP_UNICAST_PORT
-                    modifiedData = PacketRelay.modifyUdpPacket(data, ipHeaderLength, srcAddr=srcAddr, srcPort=srcPort)
+                    if dstAddr == PacketRelay.SSDP_MCAST_ADDR and dstPort == PacketRelay.SSDP_MCAST_PORT and (re.search(b'M-SEARCH', data) or re.search(b'NOTIFY', data)):
+                        recentSsdpSearchSrc = {'addr': srcAddr, 'port': srcPort}
+                        self.logger.info('Last SSDP search source: %s:%d' % (srcAddr, srcPort))
 
-                elif origDstAddr == self.ssdpUnicastAddr and origDstPort == PacketRelay.SSDP_UNICAST_PORT:
-                    if 'addr' not in recentSsdpSearchSrc or 'port' not in recentSsdpSearchSrc:
-                        # We probably haven't seen a SSDP multicast request yet
-                        continue
+                        # Modify the src IP and port to make it look like it comes from us
+                        # so as we receive the unicast answers to a well known port (1901)
+                        # and can relay them
+                        srcAddr = self.ssdpUnicastAddr
+                        srcPort = PacketRelay.SSDP_UNICAST_PORT
+                        modifiedData = PacketRelay.modifyUdpPacket(data, ipHeaderLength, srcAddr=srcAddr, srcPort=srcPort)
 
-                    # Relay SSDP unicast answer
-                    dstAddr = recentSsdpSearchSrc['addr']
-                    dstPort = recentSsdpSearchSrc['port']
-                    self.logger.info('Received SSDP Unicast - received from %s:%d on %s:%d, need to relay to %s:%d' % (origSrcAddr, origSrcPort, origDstAddr, origDstPort, dstAddr, dstPort))
-                    modifiedData = PacketRelay.modifyUdpPacket(data, ipHeaderLength, dstAddr=dstAddr, dstPort=dstPort)
+                    elif origDstAddr == self.ssdpUnicastAddr and origDstPort == PacketRelay.SSDP_UNICAST_PORT:
+                        if 'addr' not in recentSsdpSearchSrc or 'port' not in recentSsdpSearchSrc:
+                            # We probably haven't seen a SSDP multicast request yet
+                            continue
 
-                    try:
-                        destMac = binascii.unhexlify(PacketRelay.unicastIpToMac(dstAddr).replace(':', ''))
-                    except e:
-                        self.logger.info("DEBUG: exception while resolving mac of IP '%s'" % dstAddr)
-                        continue
+                        # Relay SSDP unicast answer
+                        dstAddr = recentSsdpSearchSrc['addr']
+                        dstPort = recentSsdpSearchSrc['port']
+                        self.logger.info('Received SSDP Unicast - received from %s:%d on %s:%d, need to relay to %s:%d' % (origSrcAddr, origSrcPort, origDstAddr, origDstPort, dstAddr, dstPort))
+                        modifiedData = PacketRelay.modifyUdpPacket(data, ipHeaderLength, dstAddr=dstAddr, dstPort=dstPort)
 
-                    # It's possible (though unlikely) we can't resolve the MAC if it's unicast.
-                    # In that case, we can't relay the packet
-                    if not destMac:
-                        self.logger.info("DEBUG: could not resolve mac of IP '%s'" % dstAddr)
-                        continue
+                        try:
+                            destMac = binascii.unhexlify(PacketRelay.unicastIpToMac(dstAddr).replace(':', ''))
+                        except e:
+                            self.logger.info("DEBUG: exception while resolving mac of IP '%s'" % dstAddr)
+                            continue
+
+                        # It's possible (though unlikely) we can't resolve the MAC if it's unicast.
+                        # In that case, we can't relay the packet
+                        if not destMac:
+                            self.logger.info("DEBUG: could not resolve mac of IP '%s'" % dstAddr)
+                            continue
 
                 # Work out the name of the interface we received the packet on.
                 if receivingInterface == 'local':
@@ -742,7 +744,7 @@ def main():
     if args.DHCP:
         relays.add(('255.255.255.255:67', 'DHCP67'))
         relays.add(('255.255.255.255:68', 'DHCP68'))
-        
+
 
     if args.ssdpUnicastAddr:
         relays.add(('%s:%d' % (args.ssdpUnicastAddr, PacketRelay.SSDP_UNICAST_PORT), 'SSDPunicast'))
